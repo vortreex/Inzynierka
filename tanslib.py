@@ -12,3 +12,7 @@ def countProbabilities(Data):
     for i in range(0, 256):
         probabilitesTable[i] /= len(Data)
     return probabilitesTable
+
+def createReferenceTable(probabilites):
+    pass
+
