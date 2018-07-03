@@ -16,3 +16,15 @@ def countProbabilities(Data):
 def createReferenceTable(probabilites):
     pass
 
+def compress(data,probalTab):
+    pass
+
+def addHeader(data):
+    pass
+
+def removeHeader(data):
+    pass
+
+def decompress(comprData,probalTab):
+    pass
+
