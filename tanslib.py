@@ -13,18 +13,51 @@ def countProbabilities(Data):
         probabilitesTable[i] /= len(Data)
     return probabilitesTable
 
+
 def createReferenceTable(probabilites):
+    referenceTable = []
+    columnsLength = []
+    valuesUsed = []
+    maxVal = 31#255 + 2**8
+
+    for i in range(0, len(probabilites)):
+        columnsLength.append(round(probabilites[i]*maxVal))
+    print(columnsLength)
+
+    for rowNo in range(1, round(max(columnsLength)+1)):
+        row = []
+        for j in range(0, len(probabilites)):
+            value = round(rowNo / probabilites[j])
+            value = incrementValueTillNotUsed(value, valuesUsed)
+            if rowNo <= columnsLength[j]:
+                row.append(value)
+                valuesUsed.append(value)
+            else:
+                row.append(None)
+
+        print(row)
+        print(len(row)-len(set(row))-row.count(None))
+        referenceTable.append(row)
+    return referenceTable
+
+
+def compress(data, tansTab):
     pass
 
-def compress(data,probalTab):
+
+def addHeader(data, probalTab):
     pass
 
-def addHeader(data):
-    pass
 
 def removeHeader(data):
     pass
 
-def decompress(comprData,probalTab):
+
+def decompress(comprData,tansTab):
     pass
 
+def incrementValueTillNotUsed(val, usedValues):
+    if val in usedValues:
+        val -= 1
+        val = incrementValueTillNotUsed(val, usedValues)
+    return val
