@@ -1,3 +1,5 @@
+import math
+
 def openFileAsByteArray(filePath):
     f = open(filePath, 'rb')
     byteMap = list(f.read())
@@ -15,29 +17,30 @@ def countProbabilities(Data):
 
 
 def createReferenceTable(probabilites):
-    referenceTable = []
+
     columnsLength = []
     valuesUsed = []
-    maxVal = 31#255 + 2**8
+    maxVal = 2**(8 + 4)-1
+    probabilites=sorted(probabilites, reverse=True)
 
     for i in range(0, len(probabilites)):
-        columnsLength.append(round(probabilites[i]*maxVal))
-    print(columnsLength)
+        columnsLength.append(math.floor(probabilites[i]*maxVal))
 
-    for rowNo in range(1, round(max(columnsLength)+1)):
-        row = []
-        for j in range(0, len(probabilites)):
-            value = round(rowNo / probabilites[j])
-            value = incrementValueTillNotUsed(value, valuesUsed)
-            if rowNo <= columnsLength[j]:
-                row.append(value)
+    referenceTable = [[None for _ in range(256)] for _ in range(max(columnsLength))]
+    for columnNumber in range(0, len(columnsLength)):
+        for rowNumber in range(0, max(columnsLength)):
+            if rowNumber+1 <= columnsLength[columnNumber]:
+                value = round((rowNumber+1)/probabilites[columnNumber])
+                value = incrementValueTillNotUsed(value, valuesUsed)
                 valuesUsed.append(value)
             else:
-                row.append(None)
+                value = None
 
-        print(row)
-        print(len(row)-len(set(row))-row.count(None))
-        referenceTable.append(row)
+            referenceTable[rowNumber][columnNumber] = value
+
+    referenceTable.append([maxVal]+[None]*255)  # Additional row with valMax
+    print(referenceTable)
+    print(len(valuesUsed)-len(set(valuesUsed)))
     return referenceTable
 
 
@@ -56,8 +59,10 @@ def removeHeader(data):
 def decompress(comprData,tansTab):
     pass
 
+
 def incrementValueTillNotUsed(val, usedValues):
     if val in usedValues:
-        val -= 1
+        val += 1
+        # TODO: Poprawic rekurencje bo za duzo zagniezdzenia// zamienic na while'a
         val = incrementValueTillNotUsed(val, usedValues)
     return val
