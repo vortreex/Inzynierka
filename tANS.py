@@ -9,5 +9,5 @@ probabilitiesTable = tanslib.countProbabilities(data)
 tansTable = tanslib.ReferenceTable().createReferenceTable(probabilitiesTable)
 compressedData = tanslib.compress(data, tansTable)
 compressedData = tanslib.convertBitsToByteArray(compressedData)
+compressedData = tanslib.addHeader(compressedData, probabilitiesTable)
 tanslib.saveByteArrayAsFile(compressedData, sys.argv[1])
-

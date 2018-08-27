@@ -1,4 +1,6 @@
 import math
+import pickle
+
 
 class ReferenceTable(object):
     def __init__(self):
@@ -42,7 +44,7 @@ def convertBitsToByteArray(bits):
     byteArray = []
     for i in range(0, int(math.ceil(len(bits) / 8))):
         byteArray.append(int(bits[i * 8:(i + 1) * 8], 2))
-    return bytes(byteArray)
+    return byteArray
 
 
 def saveByteArrayAsFile(compressedData, fileName):
@@ -81,13 +83,13 @@ def compress(data, tansTab):
             state[0] >>= 1
 
         initialState = tansTab.referenceTable[state[0]-1][tansTab.probabilitesHeader.index(symbol)]
-
     return compressedData
 
 
 def addHeader(data, probalTab):
-    pass
-
+    header = list(pickle.dumps(probalTab))
+    separator = [255]*4
+    return bytes(header + separator + data)
 
 def removeHeader(data):
     pass
