@@ -2,47 +2,100 @@ import math
 import pickle
 headerLenght = 2834
 
+
 class ReferenceTable(object):
     def __init__(self):
         self.referenceTable = []
         self.columnsLength = []
         self.Probabilities = []
-        self.probabilitiesHeader = []
-        self.maxVal = 255 + 2 ** 8
+        self.precisionBits = 10
+        self.maxVal = 2**self.precisionBits - 1
 
-    def countProbabilities(self, Data):
+    def countProbabilities(self, data):
         probabilitiesTable = [0] * 256
-        for i in Data:
+        for i in data:
             probabilitiesTable[i] += 1
-        for i in range(0, 256):
-            probabilitiesTable[i] /= len(Data)
+        for i in range(256):
+            probabilitiesTable[i] /= len(data)
 
-        self.Probabilities = [[a for a in range(0, 256)], probabilitiesTable]
-
+        self.Probabilities = bubbleSort([[a for a in range(256)], probabilitiesTable])
         return bubbleSort(self.Probabilities)
 
     def createReferenceTable(self):
         valuesUsed = []
-        self.probabilitiesHeader = self.Probabilities[0]
 
-        for i in range(0, len(self.probabilitiesHeader)):
+        for i in range(len(self.Probabilities[0])):
             self.columnsLength.append(math.floor(self.Probabilities[1][i] * self.maxVal))
         self.columnsLength[0] += 1
 
         for rowNo in range(1, round(max(self.columnsLength) + 1)):
             row = []
-            for j in range(0, len(self.Probabilities[0])):
+            for j in range(len(self.Probabilities[0])):
                 value = round(rowNo / self.Probabilities[1][j])
                 value = incrementValueTillNotUsed(value, valuesUsed)
                 if rowNo <= self.columnsLength[j]:
                     row.append(value)
                     valuesUsed.append(value)
                 else:
-                    row.append(0)
+                    row.append(None)
             self.referenceTable.append(row)
         self.referenceTable = decrement(self.referenceTable, self.maxVal)
-        return self
+        print(self.Probabilities[0])
+        print(self.referenceTable)
 
+    def compress(self, data):
+        compressedData = ''
+        initialState = self.maxVal
+
+        for symbol in data:
+            targetRow = self.columnsLength[self.Probabilities[0].index(symbol)]
+            state = [initialState, symbol]
+            while state[0] > targetRow:
+                if state[0] % 2 == 0:
+                    compressedData += '0'
+                elif state[0] % 2 == 1:
+                    compressedData += '1'
+                state[0] >>= 1
+            initialState = self.referenceTable[state[0]-1][self.Probabilities[0].index(symbol)]
+        return compressedData + bin(initialState)[2:]
+
+    def decompress(self, comprDat):
+        decompressedData = []
+        state = [0, '']
+        data = 0
+        while (comprDat and data != self.maxVal):
+            try:
+                bitsFromString = self.precisionBits - len(bin(state[1] + 1)[2:])
+            except (TypeError, ValueError):
+                bitsFromString = self.precisionBits
+            try:
+                binaryState = bin(state[1] + 1)[2:]
+            except TypeError:
+                binaryState = ''
+
+            data = int(binaryState + comprDat[-bitsFromString:], 2)
+            print(data)
+            if data !=self.maxVal:
+                comprDat = comprDat[:-bitsFromString]
+            # print(comprDat)
+                state = self.findValueInReferenceTable(data)
+            # print(state)
+                decompressedData.append(state[0])
+        return decompressedData[::-1]
+
+    def findValueInReferenceTable(self, value):
+        state = [0, 0]
+        rowNum = 0
+        for row in self.referenceTable:
+            try:
+                column = row.index(value)
+                state = [self.Probabilities[0][column], rowNum]
+                break
+            except ValueError:
+                pass
+            finally:
+                rowNum += 1
+        return state
 
 def openFileAsByteArray(filePath):
     f = open(filePath, 'rb')
@@ -76,24 +129,6 @@ def convertByteArrayToBits(byteArray, numOfLastBits):
     return bits
 
 
-def compress(data, tansTab):
-    compressedData = ''
-    initialState = tansTab.referenceTable[-1][0] ### maxVal
-
-    for symbol in data:
-        targetRow = tansTab.columnsLength[tansTab.probabilitiesHeader.index(symbol)]
-        state = [initialState, symbol]
-        while state[0] > targetRow:
-            if state[0] % 2 == 0:
-                compressedData += '0'
-            elif state[0] % 2 == 1:
-                compressedData += '1'
-            state[0] >>= 1
-
-        initialState = tansTab.referenceTable[state[0]-1][tansTab.probabilitiesHeader.index(symbol)]
-    return compressedData
-
-
 def addHeader(data, probalTab, numOfLastBits):
     header = list(pickle.dumps(probalTab))
     return bytes(header + [numOfLastBits] + data)
@@ -105,11 +140,6 @@ def removeHeader(compressedData):
     data = compressedData[headerLenght+1:]
     probabilitestTable = pickle.loads(bytes(header))
     return probabilitestTable, data, compressedData[headerLenght]
-
-def decompress(comprData, tansTab):
-    decompressedData = []
-
-    return decompressedData
 
 
 def incrementValueTillNotUsed(val, usedValues):
@@ -125,7 +155,10 @@ def decrement(tab, maxVal):
     while tab[-1][0] > maxVal:
         for j in range(0, len(tab)):
             for i in range(0, len(tab[0])):
-                tab[j][i] -= 1
+                try:
+                    tab[j][i] -= 1
+                except TypeError as DecrementNone:
+                    pass
     return tab
 
 
