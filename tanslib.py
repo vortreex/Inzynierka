@@ -1,7 +1,7 @@
 import math
 import pickle
-headerLenght = 2834
-
+# headerLenght = 2834
+headerLenght = 51
 
 class ReferenceTable(object):
     def __init__(self):
@@ -40,8 +40,8 @@ class ReferenceTable(object):
                     row.append(None)
             self.referenceTable.append(row)
         self.referenceTable = decrement(self.referenceTable, self.maxVal)
-        print(self.Probabilities[0])
-        print(self.referenceTable)
+        # print(self.Probabilities[0])
+        # print(self.referenceTable)
 
     def compress(self, data):
         compressedData = ''
@@ -50,37 +50,41 @@ class ReferenceTable(object):
         for symbol in data:
             targetRow = self.columnsLength[self.Probabilities[0].index(symbol)]
             state = [initialState, symbol]
+            outputSequence = state[0]
+            numberOfOutputBits = 0
             while state[0] > targetRow:
-                if state[0] % 2 == 0:
-                    compressedData += '0'
-                elif state[0] % 2 == 1:
-                    compressedData += '1'
                 state[0] >>= 1
+                numberOfOutputBits += 1
+                # print(outputSequence)
+            if numberOfOutputBits != 0:
+                compressedData += bin(outputSequence)[-numberOfOutputBits:]
+            # print(compressedData)
             initialState = self.referenceTable[state[0]-1][self.Probabilities[0].index(symbol)]
-        return compressedData + bin(initialState)[2:]
+        return compressedData + bin(initialState)[2:].zfill(self.precisionBits)
 
     def decompress(self, comprDat):
         decompressedData = []
         state = [0, '']
         data = 0
-        while (comprDat and data != self.maxVal):
+        counter = 0
+        while comprDat or data != self.maxVal:
             try:
-                bitsFromString = self.precisionBits - len(bin(state[1] + 1)[2:])
+                bitsFromString = self.precisionBits - len(bin(state[1]+1)[2:])
             except (TypeError, ValueError):
                 bitsFromString = self.precisionBits
             try:
-                binaryState = bin(state[1] + 1)[2:]
+                binaryState = bin(state[1]+1)[2:]
             except TypeError:
                 binaryState = ''
-
+            counter+=1
             data = int(binaryState + comprDat[-bitsFromString:], 2)
-            print(data)
-            if data !=self.maxVal:
-                comprDat = comprDat[:-bitsFromString]
-            # print(comprDat)
-                state = self.findValueInReferenceTable(data)
+            comprDat = comprDat[:-bitsFromString]
+            state = self.findValueInReferenceTable(data)
             # print(state)
+            if data != self.maxVal or comprDat:
                 decompressedData.append(state[0])
+            if counter == 20:
+                break
         return decompressedData[::-1]
 
     def findValueInReferenceTable(self, value):
@@ -96,6 +100,17 @@ class ReferenceTable(object):
             finally:
                 rowNum += 1
         return state
+
+    def addHeader(self, data, numOfLastBits):
+        header = list(pickle.dumps(self.Probabilities))
+        return bytes(header + [numOfLastBits] + data)
+
+    def removeHeader(self, compressedData):
+        compressedData = list(compressedData)
+        header = compressedData[:headerLenght]
+        data = compressedData[headerLenght + 1:]
+        self.Probabilities = pickle.loads(bytes(header))
+        return data, compressedData[headerLenght]
 
 def openFileAsByteArray(filePath):
     f = open(filePath, 'rb')
@@ -127,20 +142,6 @@ def convertByteArrayToBits(byteArray, numOfLastBits):
         bits += str(bin(byte))[2:].zfill(8)
     bits += str(bin(byteArray[-1]))[2:].zfill(numOfLastBits)
     return bits
-
-
-def addHeader(data, probalTab, numOfLastBits):
-    header = list(pickle.dumps(probalTab))
-    return bytes(header + [numOfLastBits] + data)
-
-
-def removeHeader(compressedData):
-    compressedData=list(compressedData)
-    header = compressedData[:headerLenght]
-    data = compressedData[headerLenght+1:]
-    probabilitestTable = pickle.loads(bytes(header))
-    return probabilitestTable, data, compressedData[headerLenght]
-
 
 def incrementValueTillNotUsed(val, usedValues):
     #TODO do przeróbki zmienić żeby wartości trochę oscylowały?
