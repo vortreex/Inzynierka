@@ -3,7 +3,8 @@ import pickle
 # headerLenght = 2834
 headerLenght = 51
 
-class ReferenceTable(object):
+
+class TabledANS(object):
     def __init__(self):
         self.referenceTable = []
         self.columnsLength = []
@@ -66,8 +67,7 @@ class ReferenceTable(object):
         decompressedData = []
         state = [0, '']
         data = 0
-        counter = 0
-        while comprDat or data != self.maxVal:
+        while comprDat:
             try:
                 bitsFromString = self.precisionBits - len(bin(state[1]+1)[2:])
             except (TypeError, ValueError):
@@ -76,15 +76,15 @@ class ReferenceTable(object):
                 binaryState = bin(state[1]+1)[2:]
             except TypeError:
                 binaryState = ''
-            counter+=1
+            # if state[1] == 6 and comprDat[-2:] == '11':
+            #     bitsFromString -= 1
             data = int(binaryState + comprDat[-bitsFromString:], 2)
             comprDat = comprDat[:-bitsFromString]
             state = self.findValueInReferenceTable(data)
-            # print(state)
+            print(state)
             if data != self.maxVal or comprDat:
                 decompressedData.append(state[0])
-            if counter == 20:
-                break
+
         return decompressedData[::-1]
 
     def findValueInReferenceTable(self, value):

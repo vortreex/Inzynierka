@@ -1,15 +1,17 @@
 import sys
 from tanslib import *
+import random
 
 print('Compressing file: ' + str(sys.argv[1]) + ' with tANS method')
 
 path = str(sys.argv[1])
 data = openFileAsByteArray(path)
-CompressionEngine = ReferenceTable()
+CompressionEngine = TabledANS()
 probabilitiesTable = CompressionEngine.countProbabilities(data)
 CompressionEngine.Probabilities = [[1, 2, 3], [0.45, 0.35, 0.2]]
 # data = [0, 156, 57, 38, 34, 114, 1, 7, 148, 221, 141, 231, 106, 92, 80, 117, 246, 255]#, 212, 67, 7, 98, 255, 216]
-data = [1,2,1,3][::-1]#, 255, 224, 0, 16, 74, 70, 73, 70, 0]
+data = [3, 1, 2, 1, 2, 2, 1, 3, 1, 1]
+random.shuffle(data)
 # data = [a for a in range(10)]
 # CompressionEngine.createReferenceTable()
 CompressionEngine.maxVal = 31
@@ -22,15 +24,15 @@ compressedData = CompressionEngine.compress(data)
 
 print(compressedData)
 
-compressedData, numOfBits = convertBitsToByteArray(compressedData)
-compressedData = CompressionEngine.addHeader(compressedData, numOfBits)
-
-saveByteArrayAsFile(compressedData, sys.argv[1])
-
-compressedData, lastBitsnumb = CompressionEngine.removeHeader(compressedData)
-
-compressedData = convertByteArrayToBits(compressedData, lastBitsnumb)
+# compressedData, numOfBits = convertBitsToByteArray(compressedData)
+# compressedData = CompressionEngine.addHeader(compressedData, numOfBits)
+#
+# saveByteArrayAsFile(compressedData, sys.argv[1])
+#
+# compressedData, lastBitsnumb = CompressionEngine.removeHeader(compressedData)
+#
+# compressedData = convertByteArrayToBits(compressedData, lastBitsnumb)
 decompressedData = CompressionEngine.decompress(compressedData)
-
+#
 # print(decompressedData)
-print(decompressedData, decompressedData == data,)
+print(decompressedData, decompressedData == data)
