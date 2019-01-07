@@ -1,7 +1,9 @@
 import math
 import pickle
-# headerLenght = 2834
-headerLenght = 51
+from loger import logger
+
+headerLenght = 2834
+# headerLenght = 51
 
 
 class TabledANS(object):
@@ -10,7 +12,7 @@ class TabledANS(object):
         self.columnsLength = []
         self.Probabilities = []
         self.precisionBits = 10
-        self.maxVal = 2**self.precisionBits - 1
+        self.maxVal = 2 ** self.precisionBits - 1
 
     def countProbabilities(self, data):
         probabilitiesTable = [0] * 256
@@ -20,29 +22,30 @@ class TabledANS(object):
             probabilitiesTable[i] /= len(data)
 
         self.Probabilities = bubbleSort([[a for a in range(256)], probabilitiesTable])
-        return bubbleSort(self.Probabilities)
+        self.Probabilities = bubbleSort(self.Probabilities)
+        return zeroRemover(self.Probabilities)
 
     def createReferenceTable(self):
         valuesUsed = []
 
-        for i in range(len(self.Probabilities[0])):
-            self.columnsLength.append(math.floor(self.Probabilities[1][i] * self.maxVal))
-        self.columnsLength[0] += 1
+        for i in range(len(self.Probabilities[1])):
+            col = math.floor(self.Probabilities[1][i] * self.maxVal)
+            if col < 1:
+                col = 1
+            self.columnsLength.append(col)
 
-        for rowNo in range(1, round(max(self.columnsLength) + 1)):
-            row = []
-            for j in range(len(self.Probabilities[0])):
-                value = round(rowNo / self.Probabilities[1][j])
-                value = incrementValueTillNotUsed(value, valuesUsed)
-                if rowNo <= self.columnsLength[j]:
-                    row.append(value)
+        self.columnsLength[0] += 1
+        value = self.maxVal - sum(self.columnsLength) + 1
+        self.referenceTable = [[None] * len(self.Probabilities[1]) for i in range(self.columnsLength[0])]
+        for row in range(self.columnsLength[0]):
+            for column in range(len(self.Probabilities[1])):
+                if row + 1 <= self.columnsLength[column]:
+                    value = incrementValueTillNotUsed(value, valuesUsed)
                     valuesUsed.append(value)
+                    self.referenceTable[row][column] = value
                 else:
-                    row.append(None)
-            self.referenceTable.append(row)
-        self.referenceTable = decrement(self.referenceTable, self.maxVal)
-        # print(self.Probabilities[0])
-        # print(self.referenceTable)
+                    break
+        self.referenceTable = decrement(self.referenceTable)
 
     def compress(self, data):
         compressedData = ''
@@ -58,34 +61,27 @@ class TabledANS(object):
                 numberOfOutputBits += 1
                 # print(outputSequence)
             if numberOfOutputBits != 0:
-                compressedData += bin(outputSequence)[-numberOfOutputBits:]
+                    compressedData += bin(outputSequence)[-numberOfOutputBits:]
             # print(compressedData)
-            initialState = self.referenceTable[state[0]-1][self.Probabilities[0].index(symbol)]
+            initialState = self.referenceTable[state[0] - 1][self.Probabilities[0].index(symbol)]
         return compressedData + bin(initialState)[2:].zfill(self.precisionBits)
 
     def decompress(self, comprDat):
         decompressedData = []
-        state = [0, '']
-        data = 0
-        while comprDat:
-            try:
-                bitsFromString = self.precisionBits - len(bin(state[1]+1)[2:])
-            except (TypeError, ValueError):
-                bitsFromString = self.precisionBits
-            try:
-                binaryState = bin(state[1]+1)[2:]
-            except TypeError:
-                binaryState = ''
-            # if state[1] == 6 and comprDat[-2:] == '11':
-            #     bitsFromString -= 1
-            data = int(binaryState + comprDat[-bitsFromString:], 2)
-            comprDat = comprDat[:-bitsFromString]
-            state = self.findValueInReferenceTable(data)
-            print(state)
-            if data != self.maxVal or comprDat:
-                decompressedData.append(state[0])
+        data = int(comprDat[-self.precisionBits:], 2)
+        comprDat = comprDat[:-self.precisionBits]
+        state = self.findValueInReferenceTable(data)
+        decompressedData.append(state[0])
 
-        return decompressedData[::-1]
+        while comprDat:
+            number = bin(state[1]+1)[2:]
+            bits = self.precisionBits - len(number)
+            data = int(number + comprDat[-bits:], 2)
+            comprDat = comprDat[:-bits]
+            state = self.findValueInReferenceTable(data)
+            decompressedData.append(state[0])
+
+        return decompressedData[::-1][1:]
 
     def findValueInReferenceTable(self, value):
         state = [0, 0]
@@ -112,6 +108,7 @@ class TabledANS(object):
         self.Probabilities = pickle.loads(bytes(header))
         return data, compressedData[headerLenght]
 
+
 def openFileAsByteArray(filePath):
     f = open(filePath, 'rb')
     byteMap = list(f.read())
@@ -133,7 +130,8 @@ def convertBitsToByteArray(bits):
     for i in range(0, int(math.ceil(len(bits) / 8))):
         byteArray.append(int(bits[i * 8:(i + 1) * 8], 2))
 
-    return byteArray, len(bits) % 8 # druga wartosc zwracana to liczba bitow w ostatnim bajcie, bo nie zawsze to jest8 i sie kod pieprzy
+    return byteArray, len(
+        bits) % 8  # druga wartosc zwracana to liczba bitow w ostatnim bajcie, bo nie zawsze to jest8 i sie kod pieprzy
 
 
 def convertByteArrayToBits(byteArray, numOfLastBits):
@@ -143,23 +141,23 @@ def convertByteArrayToBits(byteArray, numOfLastBits):
     bits += str(bin(byteArray[-1]))[2:].zfill(numOfLastBits)
     return bits
 
+
 def incrementValueTillNotUsed(val, usedValues):
-    #TODO do przeróbki zmienić żeby wartości trochę oscylowały?
-    #TODO Albo po prostu będę dekrementował każdy element aż będzie maxVal dobre :p
-    if val in usedValues:
+    # TODO do przeróbki zmienić żeby wartości trochę oscylowały?
+    # TODO Albo po prostu będę dekrementował każdy element aż będzie maxVal dobre :p
+    while val in usedValues:
         val += 1
-        val = incrementValueTillNotUsed(val, usedValues)
     return val
 
 
-def decrement(tab, maxVal):
-    while tab[-1][0] > maxVal:
-        for j in range(0, len(tab)):
-            for i in range(0, len(tab[0])):
-                try:
-                    tab[j][i] -= 1
-                except TypeError as DecrementNone:
-                    pass
+def decrement(tab):
+    const = 0
+    for column in range(len(tab[0])):
+        for row in range(len(tab)):
+            try:
+                tab[row][column] -= const
+            except TypeError:
+                break
     return tab
 
 
@@ -171,3 +169,23 @@ def bubbleSort(tab2D):
                 tab2D[0][j], tab2D[0][j + 1] = tab2D[0][j + 1], tab2D[0][j]
 
     return tab2D
+
+
+def countEntropy(tab):
+    entropy = []
+    for i in tab:
+        try:
+            entropy.append(math.log2(i) * i * -1)
+        except ValueError:
+            entropy.append(0)
+    return sum(entropy)
+
+
+def zeroRemover(tab2d):
+    while 0 in tab2d[1]:
+        for index, value in enumerate(tab2d[1]):
+            if value == 0:
+                del tab2d[0][index]
+                del tab2d[1][index]
+                break
+    return tab2d
